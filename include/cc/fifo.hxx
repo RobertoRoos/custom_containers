@@ -21,6 +21,50 @@ class fifo : public std::array<Tp, Nm> {
 public:
 	typedef Tp value_type;
 
+	/**
+	 * Define a custom iterator for consuming fifo items.
+	 * This iterator supports a wrapping index, for the circular buffer.
+	 */
+	class iterator {
+	public:
+		iterator(fifo& q, std::size_t i = 0)
+			: m_index(i)
+			, m_queue(q)
+		{}
+
+		iterator& operator++()
+		{
+			m_index = (m_index + 1) % Nm;
+			return *this;
+		}
+
+		bool operator==(iterator other) const
+		{
+			return m_index == other.m_index;
+		}
+
+		bool operator!=(iterator other) const
+		{
+			return !(*this == other);
+		}
+
+		Tp operator*()
+		{
+			;
+		}
+
+		// Iterator traits:
+		// using difference_type = std::size_t;
+		// using value_type = Tp;
+		// using pointer = const value_type*;
+		// using reference = const value_type&;
+		// using iterator_category = std::random_access_iterator_tag;
+
+	protected:
+		std::size_t m_index;
+		fifo& m_queue;
+	};
+
 	fifo()
 		: m_head(0)
 		, m_tail(0)
