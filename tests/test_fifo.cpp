@@ -115,7 +115,6 @@ TEST(FifoTest, PopList)
 	ASSERT_EQ(data.size(), 0);
 }
 
-
 TEST(FifoTest, ForLoop)
 {
 	cc::fifo<float, 5> data;
@@ -123,9 +122,51 @@ TEST(FifoTest, ForLoop)
 	data.push(2.0f);
 	data.push(3.0f);
 
-	float check = 1.0f;
+	float check = 0.0f;
 	for(const auto& v : data) {
-		ASSERT_EQ(check, v);
 		check += 1.0f;
+		ASSERT_EQ(check, v);
 	}
+	ASSERT_EQ(check, 3.0f);
+	ASSERT_EQ(data.size(), 0);
+
+	data.push(4.0f);
+	data.push(5.0f);
+	data.push(6.0f); // Placed at the start of the internal array
+	data.push(7.0f);
+
+	check = 3.0f;
+	for(const auto& v : data) {
+		check += 1.0f;
+		ASSERT_EQ(check, v);
+	}
+	ASSERT_EQ(check, 7.0f);
+	ASSERT_EQ(data.size(), 0);
+}
+
+TEST(FifoTest, ForLoopConst)
+{
+	cc::fifo<float, 5> data;
+	data.push(1.0f);
+	data.push(2.0f);
+	data.push(3.0f);
+
+	float check = 0.0f;
+	for(auto it = data.cbegin(); it != data.cend(); ++it) {
+		check += 1.0f;
+		ASSERT_EQ(check, *it);
+	}
+	ASSERT_EQ(check, 3.0f);
+	ASSERT_EQ(data.size(), 3);
+}
+
+TEST(FifoTest, Truncate)
+{
+	cc::fifo<float, 5> data;
+	data.push(1.0f);
+	data.push(1.0f);
+	data.clear();
+
+	ASSERT_EQ(data.size(), 0);
+	ASSERT_EQ(data.free(), 5);
 }

@@ -22,19 +22,53 @@ public:
 	typedef Tp value_type;
 
 	/**
-	 * Define a custom iterator for consuming fifo items.
-	 * This iterator supports a wrapping index, for the circular buffer.
+	 * Define a custom iterator for navigating fifo items.
+	 *
+	 * The iterator can count beyond the queue size! But when resolving to items
+	 * the module is taken appropriately.
 	 */
 	class iterator {
 	public:
-		iterator(fifo& q, std::size_t i = 0)
+		iterator(Tp* a, std::size_t i = 0)
 			: m_index(i)
-			, m_queue(q)
+			, m_array(a)
 		{}
+
+		operator std::size_t() const
+		{
+			return m_index;
+		}
+
+		void operator=(const std::size_t& other)
+		{
+			m_index = other;
+		}
+
+		iterator& operator+(const iterator& other)
+		{
+			return iterator(m_array, m_index + other.m_index);
+		}
+
+		iterator& operator-(const iterator& other)
+		{
+			return iterator(m_array, m_index - other.m_index);
+		}
 
 		iterator& operator++()
 		{
-			m_index = (m_index + 1) % Nm;
+			m_index++;
+			return *this;
+		}
+
+		iterator& operator+=(std::size_t n)
+		{
+			m_index += n;
+			return *this;
+		}
+
+		iterator& operator-=(std::size_t n)
+		{
+			m_index -= n;
 			return *this;
 		}
 
@@ -48,26 +82,27 @@ public:
 			return !(*this == other);
 		}
 
-		Tp operator*()
+		Tp& operator*()
 		{
-			;
+			return m_array[m_index % Nm];
 		}
 
 		// Iterator traits:
-		// using difference_type = std::size_t;
-		// using value_type = Tp;
-		// using pointer = const value_type*;
-		// using reference = const value_type&;
-		// using iterator_category = std::random_access_iterator_tag;
+		using difference_type = std::size_t;
+		using value_type = Tp;
+		using pointer = const value_type*;
+		using reference = const value_type&;
+		using iterator_category = std::random_access_iterator_tag;
+
+		std::size_t m_index;
 
 	protected:
-		std::size_t m_index;
-		fifo& m_queue;
+		Tp* m_array;
 	};
 
 	fifo()
-		: m_head(0)
-		, m_tail(0)
+		: m_head(this->data(), 0)
+		, m_tail(this->data(), 0)
 	{}
 
 	/**
@@ -78,7 +113,7 @@ public:
 	/**
 	 * Make buffer empty (memory is not actually overwritten).
 	 */
-	void truncate()
+	void clear()
 	{
 		m_tail = 0;
 		m_head = 0;
@@ -89,7 +124,7 @@ public:
 	 */
 	std::size_t size() const noexcept
 	{
-		return m_head - m_tail;
+		return static_cast<std::size_t>(m_head - m_tail);
 	}
 
 	/**
@@ -127,7 +162,7 @@ public:
 
 		this->operator[](head_modulo()) = v;
 		// `m_head` can actually exceed max_size
-		m_head++;
+		++m_head;
 		// Don't modulo, only do that on tail updates
 	}
 
@@ -184,15 +219,41 @@ public:
 
 	/* }@ */
 
+	/**
+	 * @defgroup Iterators
+	 */
+	/* @{ */
+
+	/**
+	 * Get iterator to first value to read (tail).
+	 */
 	iterator begin() noexcept
 	{
-		return iterator(this->data() + head_modulo());
+		return m_tail;
 	}
 
+	/**
+	 * Get iterator to last value to read + 1 (head) and reset head!
+	 *
+	 * This method is not const, it causes consumption of the available items!
+	 */
 	iterator end() noexcept
 	{
-		return iterator(this->data() + m_tail);
+		m_tail += size();
+		return m_head;
 	}
+
+	const iterator cbegin() const noexcept
+	{
+		return m_tail;
+	}
+
+	const iterator cend() const noexcept
+	{
+		return m_head;
+	}
+
+	/* @} */
 
 protected:
 	void increment_tail(std::size_t incr = 1)
@@ -210,9 +271,9 @@ protected:
 		return m_head % this->max_size(); // Head can exceed max_size, return modulo
 	}
 
-	std::size_t m_tail; // Index of the next value to read
-	std::size_t m_head; // Index of the next value to write
-			    // Tail-to-head is the section with valid data
+	iterator m_tail; // Index of the next value to read
+	iterator m_head; // Index of the next value to write
+			 // Tail-to-head is the section with valid data
 
 	// The tail is modulo'ed to the max size, the head is limited to the max_size * 2
 	// such that the difference is always the current size
